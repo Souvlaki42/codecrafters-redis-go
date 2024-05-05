@@ -2,31 +2,29 @@ package main
 
 import (
 	"fmt"
-	// Uncomment this block to pass the first stage
 	"net"
 	"os"
 )
 
+func checkForErrors(err error, message string, printErr bool) {
+	if err != nil {
+		if printErr {
+			fmt.Println(message, err.Error())
+		} else {
+			fmt.Println(message)
+		}
+		os.Exit(1)
+	}
+}
+
 func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	fmt.Println("Logs from your program will appear here!")
-
-	// Uncomment this block to pass the first stage
-
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
-	if err != nil {
-		fmt.Println("Failed to bind to port 6379")
-		os.Exit(1)
-	}
+	checkForErrors(err, "Failed to bind to port 6379", false)
 	c, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
-	}
+	checkForErrors(err, "Error accepting connection: ", true)
 	_, err = c.Write([]byte("+PONG\r\n"))
-	if err != nil {
-		fmt.Println("Error responding to commands: ", err.Error())
-		os.Exit(1)
-	}
+	checkForErrors(err, "Error responding to commands: ", true)
+	_, err = c.Write([]byte("+PONG\r\n"))
+	checkForErrors(err, "Error responding to commands: ", true)
 	c.Close()
 }
