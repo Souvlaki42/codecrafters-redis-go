@@ -24,7 +24,5 @@ func main() {
 	checkForErrors(err, "Error accepting connection: ", true)
 	_, err = c.Write([]byte("+PONG\r\n"))
 	checkForErrors(err, "Error responding to commands: ", true)
-	_, err = c.Write([]byte("+PONG\r\n"))
-	checkForErrors(err, "Error responding to commands: ", true)
 	c.Close()
 }
