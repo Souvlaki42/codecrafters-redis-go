@@ -6,23 +6,29 @@ import (
 	"os"
 )
 
-func checkForErrors(err error, message string, printErr bool) {
-	if err != nil {
-		if printErr {
-			fmt.Println(message, err.Error())
-		} else {
-			fmt.Println(message)
-		}
-		os.Exit(1)
-	}
-}
-
 func main() {
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
-	checkForErrors(err, "Failed to bind to port 6379", false)
+	if err != nil {
+		fmt.Println("Failed to bind to port 6379")
+		os.Exit(1)
+	}
 	c, err := l.Accept()
-	checkForErrors(err, "Error accepting connection: ", true)
-	_, err = c.Write([]byte("+PONG\r\n"))
-	checkForErrors(err, "Error responding to commands: ", true)
-	c.Close()
+	if err != nil {
+		fmt.Println("Error accepting connection: ", err.Error())
+		os.Exit(1)
+	}
+	for {
+		b := make([]byte, 1024)
+		_, err := c.Read(b)
+		fmt.Println(string(b))
+		if err != nil {
+			fmt.Println("Error reading commands: ", err.Error())
+			c.Close()
+		}
+		_, err = c.Write([]byte("+PONG\r\n"))
+		if err != nil {
+			fmt.Println("Error responding to commands: ", err.Error())
+			os.Exit(1)
+		}
+	}
 }
