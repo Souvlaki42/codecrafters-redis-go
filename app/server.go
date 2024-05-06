@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func handleCommands(commands []string) (string, []string, string) {
+func handleCommands(commands []string, data map[string]string) (string, []string, string) {
 	command, args, output := strings.ToLower(commands[0]), commands[1:], ""
 	switch command {
 	case "command":
@@ -16,6 +16,12 @@ func handleCommands(commands []string) (string, []string, string) {
 		output = "+PONG\r\n"
 	case "echo":
 		output = fmt.Sprintf("+%s\r\n", strings.Join(args, " "))
+	case "set":
+		data[args[0]] = args[1]
+		output = "+OK\r\n"
+	case "get":
+		item := data[args[0]]
+		output = fmt.Sprintf("$3\r\n%s\r\n", item)
 	default:
 		fmt.Printf("Command %q is not yet acceptable\r\n", command)
 		os.Exit(1)
@@ -23,7 +29,7 @@ func handleCommands(commands []string) (string, []string, string) {
 	return command, args, output
 }
 
-func handleConnection(connection net.Conn) {
+func handleConnection(connection net.Conn, data map[string]string) {
 	defer connection.Close()
 	for {
 		bytes := make([]byte, 1024)
@@ -42,7 +48,7 @@ func handleConnection(connection net.Conn) {
 			fmt.Println("Error parsing RESP:", err.Error())
 		}
 
-		command, args, output := handleCommands(commands)
+		command, args, output := handleCommands(commands, data)
 
 		_, err = connection.Write([]byte(output))
 		if err != nil {
@@ -59,6 +65,7 @@ func main() {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
+	var data map[string]string
 	defer listener.Close()
 	for {
 		connection, err := listener.Accept()
@@ -66,6 +73,6 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		go handleConnection(connection)
+		go handleConnection(connection, data)
 	}
 }
