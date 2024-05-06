@@ -1,32 +1,67 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"net"
 	"os"
-	"regexp"
+	"strconv"
 	"strings"
+	"time"
 )
 
 var data = make(map[string]string)
 
-func parseRESP(input []byte) []string {
-	slice := strings.Split(string(input), "\r\n")
-	var result []string
-	reg := regexp.MustCompile("[^a-zA-Z]+")
-	for _, str := range slice {
-		cleanStr := reg.ReplaceAllString(str, "")
-		if cleanStr != "" {
-			result = append(result, cleanStr)
-		}
-	}
-	return result
+func parseRESP(data []byte) ([]string, error) {
+	reader := bufio.NewReader(bytes.NewReader(data))
+	return RESP(reader)
 }
 
-// func handleCommand() (command []string, err error, output []byte) {
+func handleCommand(raw_command []byte) ([]string, string) {
+	command, err := parseRESP(raw_command)
 
-// }
+	if err != nil {
+		fmt.Println("Error parsing input: ", err.Error())
+	}
+
+	output := ""
+
+	switch strings.ToLower(command[0]) {
+	case "command":
+		output = "+\r\n"
+	case "ping":
+		output = "+PONG\r\n"
+	case "echo":
+		output = fmt.Sprintf("+%s\r\n", strings.Join(command[1:], " "))
+	case "set":
+		data[command[1]] = command[2]
+		if len(command) == 5 && strings.ToLower(command[3]) == "px" {
+			expr, err := strconv.ParseUint(command[4], 10, 64)
+			if err != nil {
+				fmt.Println("Error parsing expiration time: ", err.Error())
+			}
+			expirationTime := time.Now().Add(time.Duration(expr) * time.Millisecond)
+			go func(k string, exp time.Time) {
+				time.Sleep(time.Until(exp))
+				data[k] = ""
+			}(command[1], expirationTime)
+		}
+		output = "+OK\r\n"
+	case "get":
+		item := data[command[1]]
+		if item == "" {
+			output = "$-1\r\n"
+		} else {
+			output = fmt.Sprintf("$%d\r\n%s\r\n", len([]byte(item)), item)
+		}
+	default:
+		fmt.Printf("The command you gave: %q, isn't a valid one yet\r\n", command[0])
+		os.Exit(1)
+	}
+	return command, output
+}
 
 func handleConnection(connection net.Conn) {
 	defer connection.Close()
@@ -41,28 +76,10 @@ func handleConnection(connection net.Conn) {
 		}
 
 		raw_command := bytes[:numberOfBytes]
-		command := parseRESP(raw_command)
 
-		commandName := strings.ToLower(command[0])
-		commandArgs := command[1:]
+		command, output := handleCommand(raw_command)
 
-		switch commandName {
-		case "command":
-			_, err = connection.Write([]byte("+\r\n"))
-		case "ping":
-			_, err = connection.Write([]byte("+PONG\r\n"))
-		case "echo":
-			_, err = connection.Write([]byte(fmt.Sprintf("+%s\r\n", strings.Join(commandArgs, " "))))
-		case "set":
-			data[commandArgs[0]] = commandArgs[1]
-			_, err = connection.Write([]byte("+OK\r\n"))
-		case "get":
-			item := data[commandArgs[0]]
-			_, err = connection.Write([]byte(fmt.Sprintf("$%d\r\n%s\r\n", len([]byte(item)), item)))
-		default:
-			fmt.Printf("The command you gave: %q, isn't a valid one yet\r\n", commandName)
-			os.Exit(1)
-		}
+		_, err = connection.Write([]byte(output))
 
 		if err != nil {
 			fmt.Println("Error writing output: ", err.Error())
