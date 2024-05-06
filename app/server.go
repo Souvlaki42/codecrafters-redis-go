@@ -65,6 +65,11 @@ func handleCommand(raw_command []byte) ([]string, string) {
 		} else {
 			output = fmt.Sprintf("$%d\r\n%s\r\n", len([]byte(item)), item)
 		}
+	case "info":
+		if strings.ToLower(command[1]) == "replication" {
+			item := "# Replication\r\nrole:master\r\n"
+			output = fmt.Sprintf("$%d\r\n%s\r\n", len([]byte(item)), item)
+		}
 	default:
 		fmt.Printf("The command you gave: %q, isn't a valid one yet\r\n", command[0])
 		os.Exit(1)
