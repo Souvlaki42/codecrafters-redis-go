@@ -3,16 +3,19 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 var data = make(map[string]string)
+var mutex sync.Mutex
 
 func parseRESP(data []byte) ([]string, error) {
 	reader := bufio.NewReader(bytes.NewReader(data))
@@ -36,6 +39,9 @@ func handleCommand(raw_command []byte) ([]string, string) {
 	case "echo":
 		output = fmt.Sprintf("+%s\r\n", strings.Join(command[1:], " "))
 	case "set":
+		mutex.Lock()
+		defer mutex.Unlock()
+
 		data[command[1]] = command[2]
 		if len(command) == 5 && strings.ToLower(command[3]) == "px" {
 			expr, err := strconv.ParseUint(command[4], 10, 64)
@@ -43,8 +49,11 @@ func handleCommand(raw_command []byte) ([]string, string) {
 				fmt.Println("Error parsing expiration time: ", err.Error())
 			}
 			expirationTime := time.Now().Add(time.Duration(expr) * time.Millisecond)
+
 			go func(k string, exp time.Time) {
 				time.Sleep(time.Until(exp))
+				mutex.Lock()
+				defer mutex.Unlock()
 				data[k] = ""
 			}(command[1], expirationTime)
 		}
@@ -90,10 +99,14 @@ func handleConnection(connection net.Conn) {
 }
 
 func main() {
-	listener, err := net.Listen("tcp", "0.0.0.0:6379")
-	fmt.Println("Server binded to port 6379...")
+	var port uint
+	flag.UintVar(&port, "port", 6379, "Specify the port number")
+	flag.Parse()
+
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	fmt.Printf("Server binded to port %d...\r\n", port)
 	if err != nil {
-		fmt.Println("Failed to bind to port 6379")
+		fmt.Printf("Failed to bind to port %d\r\n", port)
 		os.Exit(1)
 	}
 	defer listener.Close()
