@@ -5,40 +5,67 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 )
 
-func handleConnection(c net.Conn) {
-	defer c.Close()
+func handleCommands(commands []string) (string, []string, string) {
+	command, args, output := strings.ToLower(commands[0]), commands[1:], ""
+	switch command {
+	case "command":
+	case "ping":
+		output = "+PONG\r\n"
+	case "echo":
+		output = fmt.Sprintf("+%s\r\n", strings.Join(args, " "))
+	default:
+		fmt.Printf("Command %q is not yet acceptable\r\n", command)
+		os.Exit(1)
+	}
+	return command, args, output
+}
+
+func handleConnection(connection net.Conn) {
+	defer connection.Close()
 	for {
-		b := make([]byte, 1024)
-		n, err := c.Read(b)
+		bytes := make([]byte, 1024)
+		numberOfBytes, err := connection.Read(bytes)
 		if err != nil {
 			if err != io.EOF {
 				fmt.Println("Error reading commands: ", err.Error())
 			}
 			continue
 		}
-		fmt.Printf("Received %d bytes: %q\n", n, b[:n])
-		_, err = c.Write([]byte("+PONG\r\n"))
+
+		raw_command := bytes[:numberOfBytes]
+		commands, err := parseRESP(raw_command)
+
+		if err != nil {
+			fmt.Println("Error parsing RESP:", err.Error())
+		}
+
+		command, args, output := handleCommands(commands)
+
+		_, err = connection.Write([]byte(output))
 		if err != nil {
 			fmt.Println("Error writing output: ", err.Error())
 		}
+
+		fmt.Printf("Received %d bytes: %q, %q\n", numberOfBytes, command, args)
 	}
 }
 
 func main() {
-	l, err := net.Listen("tcp", "0.0.0.0:6379")
+	listener, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
-	defer l.Close()
+	defer listener.Close()
 	for {
-		c, err := l.Accept()
+		connection, err := listener.Accept()
 		if err != nil {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		go handleConnection(c)
+		go handleConnection(connection)
 	}
 }
