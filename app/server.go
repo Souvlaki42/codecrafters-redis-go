@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -17,12 +16,22 @@ import (
 var data = make(map[string]string)
 var mutex sync.Mutex
 
+type Flags struct {
+	port        uint64
+	master_host string
+	master_port uint64
+}
+
+func (f *Flags) String() string {
+	return fmt.Sprintf("Port: %d\r\nMaster Host: %s\r\nMaster Port: %d", f.port, f.master_host, f.master_port)
+}
+
 func parseRESP(data []byte) ([]string, error) {
 	reader := bufio.NewReader(bytes.NewReader(data))
 	return RESP(reader)
 }
 
-func handleCommand(raw_command []byte) ([]string, string) {
+func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 	command, err := parseRESP(raw_command)
 
 	if err != nil {
@@ -67,7 +76,11 @@ func handleCommand(raw_command []byte) ([]string, string) {
 		}
 	case "info":
 		if strings.ToLower(command[1]) == "replication" {
-			item := "# Replication\r\nrole:master\r\n"
+			role := "master"
+			if flags.master_host != "" {
+				role = "slave"
+			}
+			item := fmt.Sprintf("# Replication\r\nrole:%s\r\n", role)
 			output = fmt.Sprintf("$%d\r\n%s\r\n", len([]byte(item)), item)
 		}
 	default:
@@ -77,7 +90,7 @@ func handleCommand(raw_command []byte) ([]string, string) {
 	return command, output
 }
 
-func handleConnection(connection net.Conn) {
+func handleConnection(connection net.Conn, flags Flags) {
 	defer connection.Close()
 	for {
 		bytes := make([]byte, 1024)
@@ -91,7 +104,7 @@ func handleConnection(connection net.Conn) {
 
 		raw_command := bytes[:numberOfBytes]
 
-		command, output := handleCommand(raw_command)
+		command, output := handleCommand(raw_command, flags)
 
 		_, err = connection.Write([]byte(output))
 
@@ -103,15 +116,37 @@ func handleConnection(connection net.Conn) {
 	}
 }
 
-func main() {
-	var port uint
-	flag.UintVar(&port, "port", 6379, "Specify the port number")
-	flag.Parse()
+func parseFlags(args []string) Flags {
+	i := 0
+	f := Flags{port: 6379, master_host: "", master_port: 6379}
+	for i <= len(args)-1 {
+		switch strings.ToLower(args[i]) {
+		case "--port":
+			i += 1
+			p, _ := strconv.ParseUint(args[i], 10, 64)
+			f.port = p
+			i += 1
+		case "--replicaof":
+			i += 1
+			f.master_host = args[i]
+			i += 1
+			p, _ := strconv.ParseUint(args[i], 10, 64)
+			f.master_port = p
+			i += 1
+		default:
+			i += 1
+		}
+	}
 
-	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
-	fmt.Printf("Server binded to port %d...\r\n", port)
+	return f
+}
+
+func main() {
+	flags := parseFlags(os.Args)
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", flags.port))
+	fmt.Printf("Server binded to port %d...\r\n", flags.port)
 	if err != nil {
-		fmt.Printf("Failed to bind to port %d\r\n", port)
+		fmt.Printf("Failed to bind to port %d\r\n", flags.port)
 		os.Exit(1)
 	}
 	defer listener.Close()
@@ -121,6 +156,6 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		go handleConnection(connection)
+		go handleConnection(connection, flags)
 	}
 }
