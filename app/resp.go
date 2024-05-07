@@ -2,11 +2,17 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"io"
 	"strconv"
 	"strings"
 )
+
+func parseRESP(data []byte) ([]string, error) {
+	reader := bufio.NewReader(bytes.NewReader(data))
+	return RESP(reader)
+}
 
 func RESP(reader *bufio.Reader) ([]string, error) {
 	firstByte, err := reader.ReadByte()
