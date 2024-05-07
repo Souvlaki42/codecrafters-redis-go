@@ -43,7 +43,7 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 
 	switch strings.ToLower(command[0]) {
 	case "command":
-		output = "+\r\n"
+		output = "+OK\r\n"
 	case "ping":
 		output = "+PONG\r\n"
 	case "echo":
@@ -84,6 +84,16 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 				item = "# Replication\r\nrole:master\r\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\r\nmaster_repl_offset:0\r\n"
 			}
 			output = fmt.Sprintf("$%d\r\n%s\r\n", len([]byte(item)), item)
+		}
+	case "replconf":
+		if len(command) == 3 {
+			if command[1] == "listening-port" {
+				replicaPort, _ := strconv.ParseUint(command[2], 10, 64)
+				fmt.Printf("Replica binded to port %d...\r\n", replicaPort)
+				output = "+OK\r\n"
+			} else if command[1] == "capa" && command[2] == "psync2" {
+				output = "+OK\r\n"
+			}
 		}
 	default:
 		fmt.Printf("The command you gave: %q, isn't a valid one yet\r\n", command[0])
@@ -156,18 +166,22 @@ func handleHandshake(flags Flags) error {
 
 	defer connection.Close()
 
-	_, err = connection.Write([]byte("*1\r\n$4\r\nPING\r\n"))
-	if err != nil {
-		return err
+	handshakeParts := [3]string{"*1\r\n$4\r\nPING\r\n", fmt.Sprintf("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$4\r\n%d\r\n", flags.port), "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n"}
+
+	for _, part := range handshakeParts {
+		_, err = connection.Write([]byte(part))
+		if err != nil {
+			return err
+		}
+
+		buf := make([]byte, 1024)
+		_, err = connection.Read(buf)
+		if err != nil {
+			return err
+		}
 	}
 
-	buf := make([]byte, 1024)
-	_, err = connection.Read(buf)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("%s...\r\n", flags.String())
+	fmt.Printf("%s\r\n", flags.String())
 	return nil
 }
 
