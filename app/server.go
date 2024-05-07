@@ -38,6 +38,7 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 		fmt.Println("Error parsing input: ", err.Error())
 	}
 
+	isSlave := flags.master_host != ""
 	output := ""
 
 	switch strings.ToLower(command[0]) {
@@ -77,7 +78,6 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 	case "info":
 		if strings.ToLower(command[1]) == "replication" {
 			item := ""
-			isSlave := flags.master_host != ""
 			if isSlave {
 				item = "# Replication\r\nrole:slave\r\n"
 			} else {
@@ -143,8 +143,46 @@ func parseFlags(args []string) Flags {
 	return f
 }
 
+func handleHandshake(flags Flags) error {
+	tcpaddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", flags.master_host, flags.master_port))
+	if err != nil {
+		return err
+	}
+
+	connection, err := net.DialTCP("tcp", nil, tcpaddr)
+	if err != nil {
+		return err
+	}
+
+	defer connection.Close()
+
+	_, err = connection.Write([]byte("*1\r\n$4\r\nPING\r\n"))
+	if err != nil {
+		return err
+	}
+
+	buf := make([]byte, 1024)
+	_, err = connection.Read(buf)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%s...\r\n", flags.String())
+	return nil
+}
+
 func main() {
 	flags := parseFlags(os.Args)
+
+	isSlave := flags.master_host != ""
+	if isSlave {
+		err := handleHandshake(flags)
+		if err != nil {
+			fmt.Printf("Failed to ping master %s:%d\r\n", flags.master_host, flags.master_port)
+			os.Exit(1)
+		}
+	}
+
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", flags.port))
 	fmt.Printf("Server binded to port %d...\r\n", flags.port)
 	if err != nil {
