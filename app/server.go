@@ -76,11 +76,13 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 		}
 	case "info":
 		if strings.ToLower(command[1]) == "replication" {
-			role := "master"
-			if flags.master_host != "" {
-				role = "slave"
+			item := ""
+			isSlave := flags.master_host != ""
+			if isSlave {
+				item = "# Replication\r\nrole:slave\r\n"
+			} else {
+				item = "# Replication\r\nrole:master\r\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\r\nmaster_repl_offset:0\r\n"
 			}
-			item := fmt.Sprintf("# Replication\r\nrole:%s\r\n", role)
 			output = fmt.Sprintf("$%d\r\n%s\r\n", len([]byte(item)), item)
 		}
 	default:
