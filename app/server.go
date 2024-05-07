@@ -95,6 +95,11 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 				output = "+OK\r\n"
 			}
 		}
+	case "psync":
+		if len(command) == 3 {
+			// replid, replOffset := command[1], command[2]
+			output = "+FULLRESYNC 8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb 0\r\n"
+		}
 	default:
 		fmt.Printf("The command you gave: %q, isn't a valid one yet\r\n", command[0])
 		os.Exit(1)
@@ -166,7 +171,7 @@ func handleHandshake(flags Flags) error {
 
 	defer connection.Close()
 
-	handshakeParts := [3]string{"*1\r\n$4\r\nPING\r\n", fmt.Sprintf("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$4\r\n%d\r\n", flags.port), "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n"}
+	handshakeParts := [4]string{"*1\r\n$4\r\nPING\r\n", fmt.Sprintf("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$4\r\n%d\r\n", flags.port), "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n", "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n"}
 
 	for _, part := range handshakeParts {
 		_, err = connection.Write([]byte(part))
