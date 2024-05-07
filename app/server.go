@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -98,7 +99,14 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 	case "psync":
 		if len(command) == 3 {
 			// replid, replOffset := command[1], command[2]
-			output = "+FULLRESYNC 8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb 0\r\n"
+
+			emptyRDBFileBase64 := "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog=="
+			emptyRDBFileBytes, err := base64.StdEncoding.DecodeString(emptyRDBFileBase64)
+			if err != nil {
+				fmt.Println("Failed to decode the empty rdb file to bytes")
+				os.Exit(1)
+			}
+			output = fmt.Sprintf("+FULLRESYNC 8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb 0\r\n$%d\r\n%s", len(emptyRDBFileBytes), emptyRDBFileBytes)
 		}
 	default:
 		fmt.Printf("The command you gave: %q, isn't a valid one yet\r\n", command[0])
