@@ -11,7 +11,7 @@ var data = make(map[string]string)
 var mutex sync.Mutex
 
 func main() {
-	flags := parseFlags(os.Args)
+	flags := parseFlags()
 
 	isSlave := flags.master_host != ""
 	if isSlave {
