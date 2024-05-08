@@ -1,12 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"net"
 )
 
-func handleHandshake(flags Flags) error {
-	tcpaddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", flags.master_host, flags.master_port))
+func handleHandshake(address string, commands []string) error {
+	tcpaddr, err := net.ResolveTCPAddr("tcp", address)
 	if err != nil {
 		return err
 	}
@@ -18,15 +17,8 @@ func handleHandshake(flags Flags) error {
 
 	defer connection.Close()
 
-	handshakeParts := [4]string{
-		"*1\r\n$4\r\nPING\r\n",
-		fmt.Sprintf("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$4\r\n%d\r\n", flags.port),
-		"*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n",
-		"*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n",
-	}
-
-	for _, part := range handshakeParts {
-		_, err = connection.Write([]byte(part))
+	for _, command := range commands {
+		_, err = connection.Write([]byte(command))
 		if err != nil {
 			return err
 		}
@@ -38,6 +30,5 @@ func handleHandshake(flags Flags) error {
 		}
 	}
 
-	fmt.Printf("%s\r\n", flags.String())
 	return nil
 }

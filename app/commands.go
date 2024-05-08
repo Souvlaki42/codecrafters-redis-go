@@ -16,10 +16,10 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 		fmt.Println("Error parsing input: ", err.Error())
 	}
 
-	isSlave := flags.master_host != ""
 	output := ""
 
 	switch strings.ToLower(command[0]) {
+	// TODO: Command that logs resp command
 	case "command":
 		output = "+OK\r\n"
 	case "ping":
@@ -29,6 +29,15 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 	case "set":
 		mutex.Lock()
 		defer mutex.Unlock()
+
+		if flags.is_master {
+			for _, port := range replica_ports {
+				err := handleHandshake(fmt.Sprintf("0.0.0.0:%d", port), []string{string(raw_command)})
+				if err != nil {
+					fmt.Println("Error replicating commands: ", err.Error())
+				}
+			}
+		}
 
 		data[command[1]] = command[2]
 		if len(command) == 5 && strings.ToLower(command[3]) == "px" {
@@ -56,7 +65,7 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 	case "info":
 		if strings.ToLower(command[1]) == "replication" {
 			item := ""
-			if isSlave {
+			if !flags.is_master {
 				item = "# Replication\r\nrole:slave\r\n"
 			} else {
 				item = "# Replication\r\nrole:master\r\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\r\nmaster_repl_offset:0\r\n"
@@ -68,6 +77,7 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 			if command[1] == "listening-port" {
 				replicaPort, _ := strconv.ParseUint(command[2], 10, 64)
 				fmt.Printf("Replica binded to port %d...\r\n", replicaPort)
+				replica_ports = append(replica_ports, replicaPort)
 				output = "+OK\r\n"
 			} else if command[1] == "capa" && command[2] == "psync2" {
 				output = "+OK\r\n"
