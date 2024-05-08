@@ -4,7 +4,7 @@ import (
 	"net"
 )
 
-func handleHandshake(address string, commands []string) error {
+func handleHandshake(address string, commands []string, expectResponse bool) error {
 	tcpaddr, err := net.ResolveTCPAddr("tcp", address)
 	if err != nil {
 		return err
@@ -23,10 +23,12 @@ func handleHandshake(address string, commands []string) error {
 			return err
 		}
 
-		buf := make([]byte, 1024)
-		_, err = connection.Read(buf)
-		if err != nil {
-			return err
+		if expectResponse {
+			buf := make([]byte, 1024)
+			_, err = connection.Read(buf)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

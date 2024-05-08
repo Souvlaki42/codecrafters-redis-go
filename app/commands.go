@@ -32,7 +32,7 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 
 		if flags.is_master {
 			for _, port := range replica_ports {
-				err := handleHandshake(fmt.Sprintf("0.0.0.0:%d", port), []string{string(raw_command)})
+				err := handleHandshake(fmt.Sprintf("0.0.0.0:%d", port), []string{string(raw_command)}, false)
 				if err != nil {
 					fmt.Println("Error replicating commands: ", err.Error())
 				}

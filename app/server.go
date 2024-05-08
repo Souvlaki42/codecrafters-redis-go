@@ -21,7 +21,7 @@ func main() {
 			fmt.Sprintf("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$4\r\n%d\r\n", flags.port),
 			"*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n",
 			"*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n",
-		})
+		}, true)
 		if err != nil {
 			fmt.Printf("Failed to ping master %s:%d\r\n", flags.master_host, flags.master_port)
 			os.Exit(1)
