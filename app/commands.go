@@ -30,15 +30,6 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 		mutex.Lock()
 		defer mutex.Unlock()
 
-		if flags.is_master {
-			for _, port := range replica_ports {
-				err := handleHandshake(fmt.Sprintf("0.0.0.0:%d", port), []string{string(raw_command)}, false)
-				if err != nil {
-					fmt.Println("Error replicating commands: ", err.Error())
-				}
-			}
-		}
-
 		data[command[1]] = command[2]
 		if len(command) == 5 && strings.ToLower(command[3]) == "px" {
 			expr, err := strconv.ParseUint(command[4], 10, 64)
@@ -77,7 +68,6 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 			if command[1] == "listening-port" {
 				replicaPort, _ := strconv.ParseUint(command[2], 10, 64)
 				fmt.Printf("Replica binded to port %d...\r\n", replicaPort)
-				replica_ports = append(replica_ports, replicaPort)
 				output = "+OK\r\n"
 			} else if command[1] == "capa" && command[2] == "psync2" {
 				output = "+OK\r\n"
