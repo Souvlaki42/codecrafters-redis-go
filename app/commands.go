@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -10,7 +12,8 @@ import (
 )
 
 func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
-	command, err := parseRESP(raw_command)
+	reader := bufio.NewReader(bytes.NewReader(raw_command))
+	command, err := parseRESP(reader)
 
 	if err != nil {
 		fmt.Println("Error parsing input: ", err.Error())
@@ -29,13 +32,26 @@ func handleCommand(raw_command []byte, flags Flags) ([]string, string) {
 	case "set":
 		mutex.Lock()
 		defer mutex.Unlock()
-
 		data[command[1]] = command[2]
+
+		if flags.is_master {
+			con := <-replicas
+			_, err = con.Write(raw_command)
+			if err != nil {
+				fmt.Println("Error writing output: ", err.Error())
+			}
+			buf := make([]byte, 1024)
+			_, err = con.Read(buf)
+			if err != nil {
+				fmt.Println("Error writing output: ", err.Error())
+			}
+		}
 		if len(command) == 5 && strings.ToLower(command[3]) == "px" {
 			expr, err := strconv.ParseUint(command[4], 10, 64)
 			if err != nil {
 				fmt.Println("Error parsing expiration time: ", err.Error())
 			}
+
 			expirationTime := time.Now().Add(time.Duration(expr) * time.Millisecond)
 
 			go func(k string, exp time.Time) {

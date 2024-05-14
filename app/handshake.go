@@ -5,18 +5,16 @@ import (
 	"net"
 )
 
-func handleHandshake(flags Flags) error {
+func handleHandshake(flags Flags) (*net.TCPConn, error) {
 	tcpaddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", flags.master_host, flags.master_port))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	connection, err := net.DialTCP("tcp", nil, tcpaddr)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	defer connection.Close()
 
 	commands := [4]string{
 		"*1\r\n$4\r\nPING\r\n",
@@ -28,15 +26,15 @@ func handleHandshake(flags Flags) error {
 	for _, command := range commands {
 		_, err = connection.Write([]byte(command))
 		if err != nil {
-			return err
+			return connection, err
 		}
 
 		buf := make([]byte, 1024)
 		_, err = connection.Read(buf)
 		if err != nil {
-			return err
+			return connection, err
 		}
 	}
 
-	return nil
+	return connection, nil
 }

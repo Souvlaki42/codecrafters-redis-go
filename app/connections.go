@@ -9,8 +9,8 @@ import (
 func handleConnection(connection net.Conn, flags Flags) {
 	defer connection.Close()
 	for {
-		bytes := make([]byte, 1024)
-		numberOfBytes, err := connection.Read(bytes)
+		bytesValue := make([]byte, 1024)
+		numberOfBytes, err := connection.Read(bytesValue)
 		if err != nil {
 			if err != io.EOF {
 				fmt.Println("Error reading commands: ", err.Error())
@@ -18,7 +18,7 @@ func handleConnection(connection net.Conn, flags Flags) {
 			continue
 		}
 
-		raw_command := bytes[:numberOfBytes]
+		raw_command := bytesValue[:numberOfBytes]
 
 		command, output := handleCommand(raw_command, flags)
 

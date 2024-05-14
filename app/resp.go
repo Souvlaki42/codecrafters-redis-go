@@ -2,19 +2,13 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"io"
 	"strconv"
 	"strings"
 )
 
-func parseRESP(data []byte) ([]string, error) {
-	reader := bufio.NewReader(bytes.NewReader(data))
-	return RESP(reader)
-}
-
-func RESP(reader *bufio.Reader) ([]string, error) {
+func parseRESP(reader *bufio.Reader) ([]string, error) {
 	firstByte, err := reader.ReadByte()
 	if err != nil {
 		return nil, err
@@ -73,7 +67,7 @@ func RESP(reader *bufio.Reader) ([]string, error) {
 		}
 		var array []string
 		for i := 0; i < length; i++ {
-			element, err := RESP(reader)
+			element, err := parseRESP(reader)
 			if err != nil {
 				return nil, err
 			}
